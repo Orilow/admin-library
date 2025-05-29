@@ -1,3 +1,7 @@
 {
-  "makefile.configureOnOpen": true
+  "makefile.configureOnOpen": true,
+  "python.formatting.provider": "black",
+  "[python]": {
+    "editor.formatOnSave": true
+  }
 }

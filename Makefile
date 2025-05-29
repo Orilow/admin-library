@@ -3,3 +3,9 @@ dev:
 
 dev-uvicorn:
 	uvicorn src.main:app --reload
+
+lint-all:
+	flake8 scr/
+
+fix-all:
+	black src/
