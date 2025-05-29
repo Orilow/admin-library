@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 
 
@@ -23,6 +23,27 @@ class BookUpdateSchema(BaseModel):
 
 
 class BookSchema(BookBaseSchema):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class ReaderBaseSchema(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    email: EmailStr = Field(...)
+
+
+class ReaderCreateSchema(ReaderBaseSchema):
+    pass
+
+
+class ReaderUpdateSchema(BaseModel):
+    name: Optional[str] = Field(..., min_length=1, max_length=255)
+    email: Optional[EmailStr] = None
+
+
+class ReaderSchema(ReaderBaseSchema):
     id: int
 
     class Config:

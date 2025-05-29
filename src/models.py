@@ -16,8 +16,18 @@ class BookModel(Base):
     copies_available = Column(Integer, nullable=False, default=1)
 
     __table_args__ = (
-        UniqueConstraint("isbn", name="unique_isbn"),
+        UniqueConstraint("isbn", name="uq_isbn"),
         CheckConstraint(
             "copies_available >= 0", name="check_copies_available"
         ),
     )
+
+
+class ReaderModel(Base):
+    __tablename__ = "readers"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+
+    __table_args__ = (UniqueConstraint("email", name="uq_reader_email"),)
