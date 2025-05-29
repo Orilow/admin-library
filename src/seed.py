@@ -1,7 +1,8 @@
+from datetime import datetime, timedelta, timezone
 
 
 from src.database import SessionLocal
-from src.models import BookModel, ReaderModel
+from src.models import BookModel, ReaderModel, BorrowedBookModel
 
 
 def seed_books(db):
@@ -156,11 +157,99 @@ def seed_readers(db):
     print(f"Добавлено {len(readers)} читателей в базу.")
 
 
+def seed_borrowed_books(db):
+    if db.query(BorrowedBookModel).count() > 0:
+        print("База уже содержит займы, пропускаем seeding займов.")
+        return
+
+    borrows = [
+        {
+            "book_id": 1,
+            "reader_id": 1,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=10),
+            "return_date": None,
+        },
+        {
+            "book_id": 2,
+            "reader_id": 1,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=8),
+            "return_date": None,
+        },
+        {
+            "book_id": 3,
+            "reader_id": 2,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=5),
+            "return_date": datetime.now(timezone.utc) - timedelta(days=2),
+        },
+        {
+            "book_id": 4,
+            "reader_id": 3,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=7),
+            "return_date": None,
+        },
+        {
+            "book_id": 5,
+            "reader_id": 4,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=6),
+            "return_date": None,
+        },
+        {
+            "book_id": 6,
+            "reader_id": 5,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=4),
+            "return_date": datetime.now(timezone.utc) - timedelta(days=1),
+        },
+        {
+            "book_id": 7,
+            "reader_id": 6,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=3),
+            "return_date": None,
+        },
+        {
+            "book_id": 8,
+            "reader_id": 7,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=2),
+            "return_date": None,
+        },
+        {
+            "book_id": 9,
+            "reader_id": 8,
+            "borrow_date": datetime.now(timezone.utc) - timedelta(days=1),
+            "return_date": None,
+        },
+        {
+            "book_id": 10,
+            "reader_id": 9,
+            "borrow_date": datetime.now(timezone.utc),
+            "return_date": None,
+        },
+    ]
+
+    for borrow_data in borrows:
+        borrow = BorrowedBookModel(**borrow_data)
+        book = (
+            db.query(BookModel)
+            .filter(BookModel.id == borrow_data["book_id"])
+            .first()
+        )
+        if (
+            book
+            and book.copies_available > 0
+            and borrow_data["return_date"] is None
+        ):
+            book.copies_available -= 1
+        db.add(borrow)
+
+    db.commit()
+    print(f"Добавлено {len(borrows)} займов в базу.")
+
+
 def seed_all():
     db = SessionLocal()
     try:
         seed_books(db)
         seed_readers(db)
+        seed_borrowed_books(db)
     except Exception as e:
         db.rollback()
         print(f"Ошибка при seeding: {e}")

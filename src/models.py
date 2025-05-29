@@ -1,5 +1,12 @@
-from sqlalchemy import Column, Integer, String, CheckConstraint
-
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    CheckConstraint,
+    ForeignKey,
+    DateTime,
+)
+from sqlalchemy.orm import relationship
 from sqlalchemy.schema import UniqueConstraint
 
 from src.database import Base
@@ -31,3 +38,15 @@ class ReaderModel(Base):
     email = Column(String, nullable=False)
 
     __table_args__ = (UniqueConstraint("email", name="uq_reader_email"),)
+
+
+class BorrowedBookModel(Base):
+    __tablename__ = "borrowed_books"
+
+    id = Column(Integer, primary_key=True)
+    book_id = Column(Integer, ForeignKey("books.id"), nullable=False)
+    reader_id = Column(Integer, ForeignKey("readers.id"), nullable=False)
+    borrow_date = Column(DateTime, nullable=False)
+    return_date = Column(DateTime, nullable=True)
+
+    book = relationship("BookModel")

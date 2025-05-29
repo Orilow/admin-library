@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 
@@ -45,6 +46,27 @@ class ReaderUpdateSchema(BaseModel):
 
 class ReaderSchema(ReaderBaseSchema):
     id: int
+
+    class Config:
+        from_attributes = True
+
+
+class BorrowedBookCreateSchema(BaseModel):
+    book_id: int = Field(..., ge=1)
+    reader_id: int = Field(..., ge=1)
+
+
+class BorrowedBookReturnSchema(BaseModel):
+    book_id: int = Field(..., ge=1)
+    reader_id: int = Field(..., ge=1)
+
+
+class BorrowedBookSchema(BaseModel):
+    id: int
+    book_id: int
+    reader_id: int
+    borrow_date: datetime
+    return_date: Optional[datetime]
 
     class Config:
         from_attributes = True
