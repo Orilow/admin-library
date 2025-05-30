@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import os
 from typing import List
 
 from sqlalchemy import and_
@@ -460,3 +461,9 @@ async def return_book(
     db.commit()
     db.refresh(borrowed_book)
     return borrowed_book
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))  # Render предоставляет PORT
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
