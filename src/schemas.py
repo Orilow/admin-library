@@ -70,3 +70,26 @@ class BorrowedBookSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UserCreateSchema(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserSchema(BaseModel):
+    id: int
+    email: EmailStr
+
+    class Config:
+        orm_mode = True
+
+
+class TokenSchema(BaseModel):
+    access_token: str
+    token_type: str
+
+
+class LoginSchema(BaseModel):
+    email: EmailStr
+    password: str

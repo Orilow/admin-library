@@ -1,10 +1,17 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from sqlalchemy import and_
 from sqlalchemy.orm import Session, joinedload
+from src.auth import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    create_access_token,
+    get_current_user,
+    get_password_hash,
+    verify_password,
+)
 from src.database import SessionLocal
-from src.models import BookModel, BorrowedBookModel, ReaderModel
+from src.models import BookModel, BorrowedBookModel, ReaderModel, UserModel
 
 from fastapi import FastAPI, Depends, Query, status, HTTPException
 
@@ -15,16 +22,24 @@ from src.schemas import (
     BorrowedBookCreateSchema,
     BorrowedBookReturnSchema,
     BorrowedBookSchema,
+    LoginSchema,
     ReaderCreateSchema,
     ReaderSchema,
     ReaderUpdateSchema,
+    TokenSchema,
+    UserCreateSchema,
+    UserSchema,
 )
 
 app = FastAPI(
     openapi_tags=[
+        {"name": "Auth", "description": "Аутентификация и регистрация"},
+        {
+            "name": "Loans",
+            "description": "Операции с выдачей и возвратом книг",
+        },
         {"name": "Books", "description": "Операции с книгами"},
         {"name": "Readers", "description": "Операции с читателями"},
-        {"name": "Loans", "description": "Операции с выдачей и возвратом книг"},
     ]
 )
 
@@ -37,6 +52,52 @@ def get_db():
         db.close()
 
 
+# Auth endpoints
+@app.post(
+    "/register",
+    response_model=UserSchema,
+    status_code=201,
+    summary="Зарегистрировать библиотекаря",
+    tags=["Auth"],
+)
+async def register(user: UserCreateSchema, db: Session = Depends(get_db)):
+    db_user = db.query(UserModel).filter(UserModel.email == user.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email уже занят")
+    db_user = UserModel(
+        email=user.email, password=get_password_hash(user.password)
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+@app.post(
+    "/login",
+    response_model=TokenSchema,
+    summary="Войти и получить JWT",
+    tags=["Auth"],
+)
+async def login(
+    form_data: LoginSchema,
+    db: Session = Depends(get_db),
+):
+    user = (
+        db.query(UserModel).filter(UserModel.email == form_data.email).first()
+    )
+    if not user or not verify_password(form_data.password, user.password):
+        raise HTTPException(
+            status_code=401, detail="Неверный email или пароль"
+        )
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# Books Enpoints
 @app.get(
     "/books",
     response_model=List[BookSchema],
@@ -59,7 +120,11 @@ async def read_books(
     description="Возвращает книгу по ее ID",
     tags=["Books"],
 )
-async def read_book(book_id: int, db: Session = Depends(get_db)):
+async def read_book(
+    book_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
     book = db.query(BookModel).filter(BookModel.id == book_id).first()
     if book is None:
         raise HTTPException(
@@ -76,7 +141,11 @@ async def read_book(book_id: int, db: Session = Depends(get_db)):
     description="Добавляет новую книгу в библиотеку",
     tags=["Books"],
 )
-async def create_book(book: BookCreateSchema, db: Session = Depends(get_db)):
+async def create_book(
+    book: BookCreateSchema,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
     db_book = BookModel(**book.model_dump())
     db.add(db_book)
     db.commit()
@@ -92,7 +161,10 @@ async def create_book(book: BookCreateSchema, db: Session = Depends(get_db)):
     tags=["Books"],
 )
 async def update_book(
-    book_id: int, book: BookUpdateSchema, db: Session = Depends(get_db)
+    book_id: int,
+    book: BookUpdateSchema,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
 ):
     db_book = db.query(BookModel).filter(BookModel.id == book_id).first()
     if db_book is None:
@@ -113,7 +185,11 @@ async def update_book(
     description="Удаляет книгу по её ID",
     tags=["Books"],
 )
-async def delete_book(book_id: int, db: Session = Depends(get_db)):
+async def delete_book(
+    book_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
     db_book = db.query(BookModel).filter(BookModel.id == book_id).first()
     if db_book is None:
         raise HTTPException(
@@ -124,6 +200,7 @@ async def delete_book(book_id: int, db: Session = Depends(get_db)):
     return
 
 
+# Readers Enpoints
 @app.get(
     "/readers",
     response_model=List[ReaderSchema],
@@ -135,6 +212,7 @@ async def read_readers(
     db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
+    current_user: UserModel = Depends(get_current_user),
 ):
     return db.query(ReaderModel).offset(skip).limit(limit).all()
 
@@ -146,13 +224,18 @@ async def read_readers(
     description="Возвращает читателя по его ID",
     tags=["Readers"],
 )
-async def read_reader(reader_id: int, db: Session = Depends(get_db)):
+async def read_reader(
+    reader_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
     reader = db.query(ReaderModel).filter(ReaderModel.id == reader_id).first()
     if reader is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Читатель не найден"
         )
     return reader
+
 
 @app.get(
     "/readers/{reader_id}/borrowed",
@@ -161,11 +244,15 @@ async def read_reader(reader_id: int, db: Session = Depends(get_db)):
     description="Возвращает список всех книг, которые читатель взял и ещё не вернул, включая дублирующиеся экземпляры",
     tags=["Readers", "Loans"],
 )
-async def read_reader_borrowed(reader_id: int, db: Session = Depends(get_db)):
+async def read_reader_borrowed(
+    reader_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
     reader = db.query(ReaderModel).filter(ReaderModel.id == reader_id).first()
     if not reader:
         raise HTTPException(status_code=404, detail="Читатель не найден")
-    
+
     borrowed_entries = (
         db.query(BorrowedBookModel)
         .filter(
@@ -180,6 +267,7 @@ async def read_reader_borrowed(reader_id: int, db: Session = Depends(get_db)):
 
     return books
 
+
 @app.post(
     "/readers",
     response_model=ReaderSchema,
@@ -189,7 +277,9 @@ async def read_reader_borrowed(reader_id: int, db: Session = Depends(get_db)):
     tags=["Readers"],
 )
 async def create_reader(
-    reader: ReaderCreateSchema, db: Session = Depends(get_db)
+    reader: ReaderCreateSchema,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
 ):
     db_reader = ReaderModel(**reader.model_dump())
     try:
@@ -215,7 +305,10 @@ async def create_reader(
     tags=["Readers"],
 )
 async def update_reader(
-    reader_id: int, reader: ReaderUpdateSchema, db: Session = Depends(get_db)
+    reader_id: int,
+    reader: ReaderUpdateSchema,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
 ):
     db_reader = (
         db.query(ReaderModel).filter(ReaderModel.id == reader_id).first()
@@ -247,7 +340,11 @@ async def update_reader(
     description="Удаляет читателя по его ID",
     tags=["Readers"],
 )
-async def delete_reader(reader_id: int, db: Session = Depends(get_db)):
+async def delete_reader(
+    reader_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
     db_reader = (
         db.query(ReaderModel).filter(ReaderModel.id == reader_id).first()
     )
@@ -260,6 +357,7 @@ async def delete_reader(reader_id: int, db: Session = Depends(get_db)):
     return
 
 
+# Loans Endpoints
 @app.post(
     "/rent_book",
     response_model=BorrowedBookSchema,
@@ -269,7 +367,9 @@ async def delete_reader(reader_id: int, db: Session = Depends(get_db)):
     tags=["Loans"],
 )
 async def rent_book(
-    borrow: BorrowedBookCreateSchema, db: Session = Depends(get_db)
+    borrow: BorrowedBookCreateSchema,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
 ):
     book = db.query(BookModel).filter(BookModel.id == borrow.book_id).first()
     if book is None:
@@ -328,7 +428,9 @@ async def rent_book(
     tags=["Loans"],
 )
 async def return_book(
-    borrow: BorrowedBookReturnSchema, db: Session = Depends(get_db)
+    borrow: BorrowedBookReturnSchema,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
 ):
     borrowed_book = (
         db.query(BorrowedBookModel)

@@ -50,3 +50,11 @@ class BorrowedBookModel(Base):
     return_date = Column(DateTime, nullable=True)
 
     book = relationship("BookModel")
+
+
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
