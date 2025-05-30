@@ -9,3 +9,6 @@ lint-all:
 
 fix-all:
 	black src/
+
+test-all:
+	pytest -v

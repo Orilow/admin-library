@@ -5,6 +5,7 @@ from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
     DateTime,
+    Text,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.schema import UniqueConstraint
@@ -21,6 +22,7 @@ class BookModel(Base):
     year_published = Column(Integer, nullable=True)
     isbn = Column(String, nullable=True)
     copies_available = Column(Integer, nullable=False, default=1)
+    description = Column(Text, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("isbn", name="uq_isbn"),

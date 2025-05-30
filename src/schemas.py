@@ -9,6 +9,7 @@ class BookBaseSchema(BaseModel):
     year_published: Optional[int] = None
     isbn: Optional[str] = Field(None, min_length=9, max_length=13)
     copies_available: int = Field(1, ge=0)
+    description: Optional[str] = None
 
 
 class BookCreateSchema(BookBaseSchema):
@@ -21,6 +22,7 @@ class BookUpdateSchema(BaseModel):
     year_published: Optional[int] = None
     isbn: Optional[str] = Field(None, min_length=9, max_length=13)
     copies_available: Optional[int] = Field(1, ge=0)
+    description: Optional[str] = None
 
 
 class BookSchema(BookBaseSchema):
