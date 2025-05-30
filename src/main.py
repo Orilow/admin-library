@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 import os
 from typing import List
+from dotenv import load_dotenv
+load_dotenv()
 
 from sqlalchemy import and_
 from sqlalchemy.orm import Session, joinedload
@@ -13,6 +15,8 @@ from src.auth import (
 )
 from src.database import SessionLocal
 from src.models import BookModel, BorrowedBookModel, ReaderModel, UserModel
+from alembic.config import Config
+from alembic import command
 
 from fastapi import FastAPI, Depends, Query, status, HTTPException
 
@@ -51,6 +55,21 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# Автоматическое применение миграций при старте
+def apply_migrations():
+    alembic_cfg = Config("alembic.ini")
+    db_url = os.environ.get("DATABASE_URL_PROD") if os.environ.get("DATABASE_URL_PROD") == 'prod' else os.environ.get("DATABASE_URL_LOCAL")
+    alembic_cfg.set_main_option("sqlalchemy.url", db_url)
+    command.upgrade(alembic_cfg, "head")
+    print("Alembic migrations applied successfully")
+
+# Применяем миграции один раз при старте
+try:
+    apply_migrations()
+except Exception as e:
+    print(f"Failed to apply migrations: {e}")
 
 
 # Auth endpoints
